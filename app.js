@@ -205,6 +205,9 @@ class DirectionalMapApp {
             // Initialiser le panneau de configuration
             this.initConfigPanel();
 
+            // Initialiser le bouton de rafraîchissement
+            this.initRefreshButton();
+
             // Démarrer la géolocalisation
             this.startGeolocation();
 
@@ -704,6 +707,16 @@ class DirectionalMapApp {
                 this.statusElement.classList.add('hidden');
             }, duration);
         }
+    }
+
+    /**
+     * Initialise le bouton de rafraîchissement
+     */
+    initRefreshButton() {
+        const refreshBtn = document.getElementById('refresh-button');
+        refreshBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
     }
 
     /**
