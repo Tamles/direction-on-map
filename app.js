@@ -16,6 +16,7 @@ class DirectionalMapApp {
         this.userPosition = null;
         this.userMarker = null;
         this.targetMarker = null;
+        this.geodesicLine = null;
         this.deviceHeading = 0;
         this.watchId = null;
         this.orientationEnabled = false;
@@ -173,6 +174,9 @@ class DirectionalMapApp {
 
         // Mettre à jour la direction et la distance
         this.updateDirection();
+
+        // Mettre à jour la ligne géodésique
+        this.updateGeodesicLine();
 
         // Message de précision GPS
         if (accuracy > 100) {
@@ -444,6 +448,92 @@ class DirectionalMapApp {
     }
 
     /**
+     * Calcule les points intermédiaires d'un great circle (orthodromie)
+     * entre deux points géographiques
+     * @param {number} lat1 - Latitude du point de départ
+     * @param {number} lng1 - Longitude du point de départ
+     * @param {number} lat2 - Latitude du point d'arrivée
+     * @param {number} lng2 - Longitude du point d'arrivée
+     * @param {number} numPoints - Nombre de points intermédiaires
+     * @returns {Array} Tableau de points [lat, lng]
+     */
+    calculateGreatCircle(lat1, lng1, lat2, lng2, numPoints = 100) {
+        const points = [];
+
+        // Convertir en radians
+        const φ1 = lat1 * (Math.PI / 180);
+        const λ1 = lng1 * (Math.PI / 180);
+        const φ2 = lat2 * (Math.PI / 180);
+        const λ2 = lng2 * (Math.PI / 180);
+
+        // Calculer la distance angulaire
+        const Δφ = φ2 - φ1;
+        const Δλ = λ2 - λ1;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+        const δ = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Interpolation sphérique (SLERP)
+        for (let i = 0; i <= numPoints; i++) {
+            const f = i / numPoints;
+
+            // Formule d'interpolation great circle
+            const A = Math.sin((1 - f) * δ) / Math.sin(δ);
+            const B = Math.sin(f * δ) / Math.sin(δ);
+
+            const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+            const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+            const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+
+            const φi = Math.atan2(z, Math.sqrt(x * x + y * y));
+            const λi = Math.atan2(y, x);
+
+            // Convertir en degrés
+            const lat = φi * (180 / Math.PI);
+            const lng = λi * (180 / Math.PI);
+
+            points.push([lat, lng]);
+        }
+
+        return points;
+    }
+
+    /**
+     * Met à jour ou crée la ligne géodésique sur la carte
+     */
+    updateGeodesicLine() {
+        if (!this.userPosition) return;
+
+        // Supprimer l'ancienne ligne si elle existe
+        if (this.geodesicLine) {
+            this.map.removeLayer(this.geodesicLine);
+        }
+
+        // Calculer les points du great circle
+        const points = this.calculateGreatCircle(
+            this.userPosition.lat,
+            this.userPosition.lng,
+            this.target.lat,
+            this.target.lng
+        );
+
+        // Créer la ligne avec un style distinctif
+        this.geodesicLine = L.polyline(points, {
+            color: '#4ECDC4',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '10, 10',
+            lineJoin: 'round'
+        }).addTo(this.map);
+
+        // Ajouter une info-bulle
+        this.geodesicLine.bindPopup('<b>Trajectoire orthodromique</b><br>Chemin le plus court sur la sphère terrestre');
+    }
+
+    /**
      * Normalise un angle en degrés sur l'intervalle [0, 360)
      */
     normalizeDegrees(degrees) {
@@ -514,6 +604,7 @@ class DirectionalMapApp {
             this.target = { lat, lng };
             this.addTargetMarker();
             this.updateDirection();
+            this.updateGeodesicLine();
 
             // Recentrer la carte si l'utilisateur est positionné
             if (this.userPosition) {
@@ -541,6 +632,10 @@ class DirectionalMapApp {
 
         window.removeEventListener('deviceorientation', this.onDeviceOrientation);
         window.removeEventListener('deviceorientationabsolute', this.onDeviceOrientation);
+
+        if (this.geodesicLine && this.map) {
+            this.map.removeLayer(this.geodesicLine);
+        }
 
         if (this.map) {
             this.map.remove();
