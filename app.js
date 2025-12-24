@@ -3,6 +3,145 @@
  * Affiche une flèche pointant vers une destination depuis la position utilisateur
  */
 
+/**
+ * Gestionnaire de destinations sauvegardées avec localStorage
+ */
+class DestinationManager {
+    constructor() {
+        this.storageKey = 'directional-map-destinations';
+        this.destinations = this.loadDestinations();
+    }
+
+    /**
+     * Charge les destinations depuis localStorage
+     */
+    loadDestinations() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : [];
+        } catch (error) {
+            console.error('Erreur de chargement des destinations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Sauvegarde les destinations dans localStorage
+     */
+    saveDestinations() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.destinations));
+            return true;
+        } catch (error) {
+            console.error('Erreur de sauvegarde des destinations:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Ajoute une nouvelle destination
+     */
+    addDestination(name, lat, lng) {
+        const destination = {
+            id: this.generateId(),
+            name: name.trim(),
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            createdAt: Date.now(),
+            favorite: false
+        };
+
+        this.destinations.push(destination);
+        this.saveDestinations();
+        return destination;
+    }
+
+    /**
+     * Supprime une destination par ID
+     */
+    deleteDestination(id) {
+        const index = this.destinations.findIndex(d => d.id === id);
+        if (index !== -1) {
+            this.destinations.splice(index, 1);
+            this.saveDestinations();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Récupère une destination par ID
+     */
+    getDestination(id) {
+        return this.destinations.find(d => d.id === id);
+    }
+
+    /**
+     * Récupère toutes les destinations
+     */
+    getAllDestinations() {
+        return [...this.destinations];
+    }
+
+    /**
+     * Toggle le statut favori d'une destination
+     */
+    toggleFavorite(id) {
+        const destination = this.getDestination(id);
+        if (destination) {
+            destination.favorite = !destination.favorite;
+            this.saveDestinations();
+            return destination.favorite;
+        }
+        return false;
+    }
+
+    /**
+     * Met à jour une destination
+     */
+    updateDestination(id, updates) {
+        const destination = this.getDestination(id);
+        if (destination) {
+            Object.assign(destination, updates);
+            this.saveDestinations();
+            return destination;
+        }
+        return null;
+    }
+
+    /**
+     * Génère un ID unique
+     */
+    generateId() {
+        return `dest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    /**
+     * Exporte les destinations en JSON
+     */
+    exportToJSON() {
+        return JSON.stringify(this.destinations, null, 2);
+    }
+
+    /**
+     * Importe des destinations depuis JSON
+     */
+    importFromJSON(jsonString) {
+        try {
+            const imported = JSON.parse(jsonString);
+            if (Array.isArray(imported)) {
+                this.destinations = imported;
+                this.saveDestinations();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Erreur d\'importation:', error);
+            return false;
+        }
+    }
+}
+
 class DirectionalMapApp {
     constructor() {
         // Configuration
@@ -10,6 +149,9 @@ class DirectionalMapApp {
             lat: 48.858370,  // Tour Eiffel par défaut
             lng: 2.294481
         };
+
+        // Gestionnaire de destinations
+        this.destinationManager = new DestinationManager();
 
         // État de l'application
         this.map = null;
@@ -563,12 +705,17 @@ class DirectionalMapApp {
         const toggleBtn = document.getElementById('toggle-config');
         const configContent = document.getElementById('config-content');
         const updateBtn = document.getElementById('update-target');
+        const saveBtn = document.getElementById('save-destination');
         const latInput = document.getElementById('target-lat');
         const lngInput = document.getElementById('target-lng');
+        const nameInput = document.getElementById('destination-name');
 
         // Toggle panneau
         toggleBtn.addEventListener('click', () => {
             configContent.classList.toggle('hidden');
+            if (!configContent.classList.contains('hidden')) {
+                this.renderDestinations();
+            }
         });
 
         // Mise à jour de la cible
@@ -586,25 +733,171 @@ class DirectionalMapApp {
                 return;
             }
 
-            this.target = { lat, lng };
-            this.addTargetMarker();
-            this.updateDirection();
-            this.updateGeodesicLine();
-
-            // Recentrer la carte si l'utilisateur est positionné
-            if (this.userPosition) {
-                const bounds = L.latLngBounds([
-                    [this.userPosition.lat, this.userPosition.lng],
-                    [this.target.lat, this.target.lng]
-                ]);
-                this.map.fitBounds(bounds, { padding: [50, 50] });
-            } else {
-                this.map.setView([lat, lng], 13);
-            }
-
+            this.setTarget(lat, lng);
             configContent.classList.add('hidden');
             this.showStatus('✓ Destination mise à jour', 'info', 2000);
         });
+
+        // Sauvegarde de la destination
+        saveBtn.addEventListener('click', () => {
+            const lat = parseFloat(latInput.value);
+            const lng = parseFloat(lngInput.value);
+            let name = nameInput.value.trim();
+
+            if (isNaN(lat) || isNaN(lng)) {
+                this.showStatus('❌ Coordonnées invalides', 'error', 3000);
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                this.showStatus('❌ Coordonnées hors limites', 'error', 3000);
+                return;
+            }
+
+            // Générer un nom si vide
+            if (!name) {
+                name = `Destination ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
+
+            this.destinationManager.addDestination(name, lat, lng);
+            nameInput.value = '';
+            this.renderDestinations();
+            this.showStatus('✓ Destination sauvegardée', 'info', 2000);
+        });
+
+        // Rendu initial
+        this.renderDestinations();
+    }
+
+    /**
+     * Affiche la liste des destinations sauvegardées
+     */
+    renderDestinations() {
+        const list = document.getElementById('saved-destinations-list');
+        const emptyState = document.getElementById('empty-destinations');
+        const destinations = this.destinationManager.getAllDestinations();
+
+        // Vider la liste
+        list.innerHTML = '';
+
+        if (destinations.length === 0) {
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        // Trier : favoris d'abord, puis par date décroissante
+        destinations.sort((a, b) => {
+            if (a.favorite && !b.favorite) return -1;
+            if (!a.favorite && b.favorite) return 1;
+            return b.createdAt - a.createdAt;
+        });
+
+        // Créer les éléments
+        destinations.forEach(dest => {
+            const item = document.createElement('div');
+            item.className = 'destination-item';
+
+            const info = document.createElement('div');
+            info.className = 'destination-info';
+            info.innerHTML = `
+                <div class="destination-name">${dest.favorite ? '⭐ ' : ''}${this.escapeHtml(dest.name)}</div>
+                <div class="destination-coords">${dest.lat.toFixed(6)}, ${dest.lng.toFixed(6)}</div>
+            `;
+            info.addEventListener('click', () => this.loadDestination(dest.id));
+
+            const actions = document.createElement('div');
+            actions.className = 'destination-actions';
+
+            // Bouton favori
+            const favoriteBtn = document.createElement('button');
+            favoriteBtn.className = `btn-icon ${dest.favorite ? 'favorite' : ''}`;
+            favoriteBtn.innerHTML = dest.favorite ? '★' : '☆';
+            favoriteBtn.title = 'Favori';
+            favoriteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleFavorite(dest.id);
+            });
+
+            // Bouton supprimer
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-icon delete';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = 'Supprimer';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteDestination(dest.id);
+            });
+
+            actions.appendChild(favoriteBtn);
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(info);
+            item.appendChild(actions);
+            list.appendChild(item);
+        });
+    }
+
+    /**
+     * Charge une destination sauvegardée
+     */
+    loadDestination(id) {
+        const dest = this.destinationManager.getDestination(id);
+        if (dest) {
+            this.setTarget(dest.lat, dest.lng);
+            document.getElementById('config-content').classList.add('hidden');
+            this.showStatus(`✓ ${dest.name}`, 'info', 2000);
+        }
+    }
+
+    /**
+     * Définit une nouvelle cible
+     */
+    setTarget(lat, lng) {
+        this.target = { lat, lng };
+        this.addTargetMarker();
+        this.updateDirection();
+        this.updateGeodesicLine();
+
+        // Recentrer la carte si l'utilisateur est positionné
+        if (this.userPosition) {
+            const bounds = L.latLngBounds([
+                [this.userPosition.lat, this.userPosition.lng],
+                [this.target.lat, this.target.lng]
+            ]);
+            this.map.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+            this.map.setView([lat, lng], 13);
+        }
+    }
+
+    /**
+     * Toggle le statut favori d'une destination
+     */
+    toggleFavorite(id) {
+        this.destinationManager.toggleFavorite(id);
+        this.renderDestinations();
+    }
+
+    /**
+     * Supprime une destination
+     */
+    deleteDestination(id) {
+        if (confirm('Supprimer cette destination ?')) {
+            this.destinationManager.deleteDestination(id);
+            this.renderDestinations();
+            this.showStatus('✓ Destination supprimée', 'info', 2000);
+        }
+    }
+
+    /**
+     * Échappe les caractères HTML pour éviter XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**

@@ -216,6 +216,164 @@ html, body {
     text-align: center;
 }
 
+/* Bouton secondaire */
+.btn-secondary {
+    width: 100%;
+    padding: 10px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-secondary:hover {
+    background: #ff5555;
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
+}
+
+/* Section de configuration */
+.config-section {
+    margin-bottom: 20px;
+}
+
+.config-section h3 {
+    margin-bottom: 16px;
+    font-size: 16px;
+    color: var(--text-color);
+}
+
+/* Divider */
+.divider {
+    height: 1px;
+    background: #E0E0E0;
+    margin: 20px 0;
+}
+
+/* Liste des destinations */
+.destinations-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+
+.destinations-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.destinations-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.destinations-list::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.destinations-list::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* Item de destination */
+.destination-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+}
+
+.destination-item:hover {
+    background: #e9ecef;
+}
+
+.destination-info {
+    flex: 1;
+    cursor: pointer;
+}
+
+.destination-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-color);
+    margin-bottom: 2px;
+}
+
+.destination-coords {
+    font-size: 11px;
+    color: #666;
+}
+
+.destination-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #f8f9fa;
+    border-color: #999;
+}
+
+.btn-icon:active {
+    transform: scale(0.95);
+}
+
+.btn-icon.favorite {
+    color: #FFD700;
+}
+
+.btn-icon.delete {
+    color: #dc3545;
+}
+
+.btn-icon.delete:hover {
+    background: #ffe6e6;
+    border-color: #dc3545;
+}
+
+/* État vide */
+.empty-state {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+.empty-state.hidden {
+    display: none;
+}
+
+/* Section sauvegarde */
+.save-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #ddd;
+}
+
 /* Responsive - Tablettes et plus grand */
 @media (min-width: 768px) {
     .info-banner {
