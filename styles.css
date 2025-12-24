@@ -54,42 +54,30 @@ html, body {
     white-space: nowrap;
 }
 
-/* Conteneur de la flèche */
-.arrow-container {
+/* Conteneur de la distance */
+.distance-container {
     position: absolute;
-    top: 50%;
+    top: 70px;
     left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 500;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    transform: translateX(-50%);
+    z-index: 1000;
     pointer-events: none;
 }
 
-.arrow-container.hidden {
+.distance-container.hidden {
     display: none;
-}
-
-/* Flèche SVG */
-.arrow {
-    width: 80px;
-    height: 80px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 /* Distance */
 .distance {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 16px;
-    font-size: 13px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-color);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-strong);
 }
 
 /* Messages de statut */
@@ -236,14 +224,9 @@ html, body {
         padding: 14px 28px;
     }
 
-    .arrow {
-        width: 100px;
-        height: 100px;
-    }
-
     .distance {
-        font-size: 15px;
-        padding: 10px 20px;
+        font-size: 16px;
+        padding: 12px 24px;
     }
 
     .status {

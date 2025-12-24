@@ -30,8 +30,7 @@ class DirectionalMapApp {
         this.headingBufferSize = 5;
 
         // Éléments DOM
-        this.arrowContainer = document.getElementById('arrow-container');
-        this.arrow = document.getElementById('arrow');
+        this.distanceContainer = document.getElementById('distance-container');
         this.distanceElement = document.getElementById('distance');
         this.statusElement = document.getElementById('status');
 
@@ -169,10 +168,10 @@ class DirectionalMapApp {
             this.userMarker.setLatLng([latitude, longitude]);
         }
 
-        // Afficher la flèche
-        this.arrowContainer.classList.remove('hidden');
+        // Afficher la distance
+        this.distanceContainer.classList.remove('hidden');
 
-        // Mettre à jour la direction et la distance
+        // Mettre à jour la distance
         this.updateDirection();
 
         // Mettre à jour la ligne géodésique
@@ -378,24 +377,10 @@ class DirectionalMapApp {
     }
 
     /**
-     * Met à jour la direction et la distance affichées
+     * Met à jour la distance affichée
      */
     updateDirection() {
         if (!this.userPosition) return;
-
-        // Calculer le bearing vers la cible
-        const bearing = this.calculateBearing(
-            this.userPosition.lat,
-            this.userPosition.lng,
-            this.target.lat,
-            this.target.lng
-        );
-
-        // Calculer l'angle relatif à afficher
-        const relativeAngle = this.normalizeDegrees(bearing - this.deviceHeading);
-
-        // Rotation de la flèche
-        this.arrow.style.transform = `rotate(${relativeAngle}deg)`;
 
         // Calculer et afficher la distance
         const distance = this.calculateDistance(

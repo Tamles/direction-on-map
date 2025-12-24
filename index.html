@@ -23,16 +23,8 @@
         <!-- Carte -->
         <div id="map"></div>
 
-        <!-- Flèche directionnelle -->
-        <div id="arrow-container" class="arrow-container hidden">
-            <svg id="arrow" class="arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <filter id="shadow">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
-                    </filter>
-                </defs>
-                <polygon points="50,10 70,90 50,75 30,90" fill="#FF6B6B" stroke="#fff" stroke-width="3" filter="url(#shadow)"/>
-            </svg>
+        <!-- Affichage de la distance -->
+        <div id="distance-container" class="distance-container hidden">
             <div id="distance" class="distance"></div>
         </div>
 
