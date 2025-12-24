@@ -238,6 +238,29 @@ html, body {
     transform: scale(0.98);
 }
 
+/* Bouton de partage */
+.btn-share {
+    width: 100%;
+    padding: 10px;
+    background: #8E44AD;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+}
+
+.btn-share:hover {
+    background: #7D3C98;
+}
+
+.btn-share:active {
+    transform: scale(0.98);
+}
+
 /* Section de configuration */
 .config-section {
     margin-bottom: 20px;
@@ -354,6 +377,15 @@ html, body {
 .btn-icon.delete:hover {
     background: #ffe6e6;
     border-color: #dc3545;
+}
+
+.btn-icon.share {
+    color: #8E44AD;
+}
+
+.btn-icon.share:hover {
+    background: #f3e5f5;
+    border-color: #8E44AD;
 }
 
 /* État vide */

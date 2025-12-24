@@ -194,6 +194,9 @@ class DirectionalMapApp {
             // Initialiser la carte
             this.initMap();
 
+            // Charger la destination depuis l'URL si présente
+            this.parseURLHash();
+
             // Initialiser le panneau de configuration
             this.initConfigPanel();
 
@@ -706,6 +709,7 @@ class DirectionalMapApp {
         const configContent = document.getElementById('config-content');
         const updateBtn = document.getElementById('update-target');
         const saveBtn = document.getElementById('save-destination');
+        const shareBtn = document.getElementById('share-destination');
         const latInput = document.getElementById('target-lat');
         const lngInput = document.getElementById('target-lng');
         const nameInput = document.getElementById('destination-name');
@@ -765,6 +769,19 @@ class DirectionalMapApp {
             this.showStatus('✓ Destination sauvegardée', 'info', 2000);
         });
 
+        // Partage de la destination
+        shareBtn.addEventListener('click', () => {
+            const name = nameInput.value.trim() || null;
+
+            // Mettre à jour l'URL avec le nom si présent
+            if (name) {
+                this.updateURLHash(name);
+            }
+
+            // Copier l'URL dans le presse-papiers
+            this.shareDestination();
+        });
+
         // Rendu initial
         this.renderDestinations();
     }
@@ -820,6 +837,22 @@ class DirectionalMapApp {
                 this.toggleFavorite(dest.id);
             });
 
+            // Bouton partager
+            const shareBtn = document.createElement('button');
+            shareBtn.className = 'btn-icon share';
+            shareBtn.innerHTML = '🔗';
+            shareBtn.title = 'Partager';
+            shareBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Charger temporairement la destination pour mettre à jour l'URL
+                const oldTarget = { ...this.target };
+                this.target = { lat: dest.lat, lng: dest.lng };
+                this.updateURLHash(dest.name);
+                await this.shareDestination();
+                // Restaurer la cible précédente
+                this.target = oldTarget;
+            });
+
             // Bouton supprimer
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-icon delete';
@@ -831,6 +864,7 @@ class DirectionalMapApp {
             });
 
             actions.appendChild(favoriteBtn);
+            actions.appendChild(shareBtn);
             actions.appendChild(deleteBtn);
 
             item.appendChild(info);
@@ -845,7 +879,7 @@ class DirectionalMapApp {
     loadDestination(id) {
         const dest = this.destinationManager.getDestination(id);
         if (dest) {
-            this.setTarget(dest.lat, dest.lng);
+            this.setTarget(dest.lat, dest.lng, dest.name);
             document.getElementById('config-content').classList.add('hidden');
             this.showStatus(`✓ ${dest.name}`, 'info', 2000);
         }
@@ -854,11 +888,14 @@ class DirectionalMapApp {
     /**
      * Définit une nouvelle cible
      */
-    setTarget(lat, lng) {
+    setTarget(lat, lng, name = null) {
         this.target = { lat, lng };
         this.addTargetMarker();
         this.updateDirection();
         this.updateGeodesicLine();
+
+        // Mettre à jour l'URL pour le partage
+        this.updateURLHash(name);
 
         // Recentrer la carte si l'utilisateur est positionné
         if (this.userPosition) {
@@ -898,6 +935,95 @@ class DirectionalMapApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Parse le hash de l'URL pour charger une destination
+     * Format: #lat,lng ou #lat,lng,nom
+     * Exemple: #48.858370,2.294481,Tour%20Eiffel
+     */
+    parseURLHash() {
+        const hash = window.location.hash.substring(1); // Retirer le #
+        if (!hash) return;
+
+        const parts = hash.split(',');
+        if (parts.length < 2) return;
+
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        const name = parts.length >= 3 ? decodeURIComponent(parts[2]) : null;
+
+        // Valider les coordonnées
+        if (isNaN(lat) || isNaN(lng)) {
+            console.warn('Coordonnées invalides dans l\'URL:', hash);
+            return;
+        }
+
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            console.warn('Coordonnées hors limites dans l\'URL:', hash);
+            return;
+        }
+
+        // Charger la destination
+        this.target = { lat, lng };
+        this.addTargetMarker();
+
+        // Afficher un message
+        const message = name ? `📍 ${name}` : `📍 Destination partagée`;
+        console.log('Destination chargée depuis l\'URL:', { lat, lng, name });
+
+        // Mettre à jour les inputs
+        document.getElementById('target-lat').value = lat;
+        document.getElementById('target-lng').value = lng;
+        if (name) {
+            document.getElementById('destination-name').value = name;
+        }
+    }
+
+    /**
+     * Met à jour le hash de l'URL avec la destination actuelle
+     */
+    updateURLHash(name = null) {
+        const lat = this.target.lat.toFixed(6);
+        const lng = this.target.lng.toFixed(6);
+
+        let hash = `#${lat},${lng}`;
+        if (name) {
+            hash += `,${encodeURIComponent(name)}`;
+        }
+
+        // Mettre à jour l'URL sans recharger la page
+        history.replaceState(null, '', hash);
+    }
+
+    /**
+     * Copie l'URL de partage dans le presse-papiers
+     */
+    async shareDestination() {
+        const url = window.location.href;
+
+        try {
+            // Utiliser l'API Clipboard si disponible
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(url);
+                this.showStatus('✓ Lien copié dans le presse-papiers', 'info', 2000);
+            } else {
+                // Fallback pour les navigateurs plus anciens
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.showStatus('✓ Lien copié', 'info', 2000);
+            }
+        } catch (error) {
+            console.error('Erreur de copie:', error);
+            // Afficher l'URL pour copie manuelle
+            this.showStatus(`Lien: ${url}`, 'info', 5000);
+        }
     }
 
     /**
