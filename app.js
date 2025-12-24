@@ -163,6 +163,11 @@ class DirectionalMapApp {
         this.watchId = null;
         this.orientationEnabled = false;
 
+        // Mode de position (GPS / Manuel)
+        this.positionMode = 'gps'; // 'gps' ou 'manual'
+        this.isWaitingForMapClick = false;
+        this.mapClickHandler = null;
+
         // Throttling
         this.lastOrientationUpdate = 0;
         this.orientationThrottle = 66; // ~15Hz max
@@ -714,12 +719,60 @@ class DirectionalMapApp {
         const lngInput = document.getElementById('target-lng');
         const nameInput = document.getElementById('destination-name');
 
+        // Éléments pour le mode position
+        const modeGPS = document.getElementById('mode-gps');
+        const modeManual = document.getElementById('mode-manual');
+        const manualContent = document.getElementById('manual-position-content');
+        const clickMapBtn = document.getElementById('click-map-position');
+        const applyPositionBtn = document.getElementById('apply-manual-position');
+        const userLatInput = document.getElementById('user-lat');
+        const userLngInput = document.getElementById('user-lng');
+
         // Toggle panneau
         toggleBtn.addEventListener('click', () => {
             configContent.classList.toggle('hidden');
             if (!configContent.classList.contains('hidden')) {
                 this.renderDestinations();
             }
+        });
+
+        // Changement de mode position (GPS/Manuel)
+        modeGPS.addEventListener('change', () => {
+            if (modeGPS.checked) {
+                this.setPositionMode('gps');
+                manualContent.classList.add('hidden');
+            }
+        });
+
+        modeManual.addEventListener('change', () => {
+            if (modeManual.checked) {
+                this.setPositionMode('manual');
+                manualContent.classList.remove('hidden');
+            }
+        });
+
+        // Bouton "Cliquer sur la carte"
+        clickMapBtn.addEventListener('click', () => {
+            this.enableMapClickMode();
+        });
+
+        // Bouton "Appliquer la position"
+        applyPositionBtn.addEventListener('click', () => {
+            const lat = parseFloat(userLatInput.value);
+            const lng = parseFloat(userLngInput.value);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                this.showStatus('❌ Coordonnées invalides', 'error', 3000);
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                this.showStatus('❌ Coordonnées hors limites', 'error', 3000);
+                return;
+            }
+
+            this.setManualPosition(lat, lng);
+            this.showStatus('✓ Position manuelle définie', 'info', 2000);
         });
 
         // Mise à jour de la cible
@@ -935,6 +988,137 @@ class DirectionalMapApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Change le mode de position (GPS / Manuel)
+     */
+    setPositionMode(mode) {
+        this.positionMode = mode;
+
+        if (mode === 'gps') {
+            // Redémarrer le GPS
+            if (!this.watchId) {
+                this.startGeolocation();
+            }
+            this.showStatus('📡 Mode GPS activé', 'info', 2000);
+        } else {
+            // Arrêter le GPS
+            if (this.watchId !== null) {
+                navigator.geolocation.clearWatch(this.watchId);
+                this.watchId = null;
+            }
+            this.showStatus('📌 Mode position manuelle activé', 'info', 2000);
+        }
+    }
+
+    /**
+     * Active le mode de clic sur carte pour définir la position
+     */
+    enableMapClickMode() {
+        if (this.isWaitingForMapClick) {
+            // Désactiver si déjà actif
+            this.disableMapClickMode();
+            return;
+        }
+
+        this.isWaitingForMapClick = true;
+        const clickMapBtn = document.getElementById('click-map-position');
+        clickMapBtn.classList.add('active');
+        clickMapBtn.textContent = '❌ Annuler';
+
+        // Ajouter le curseur crosshair
+        document.getElementById('map').classList.add('crosshair-cursor');
+
+        // Créer le gestionnaire de clic
+        this.mapClickHandler = (e) => {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            this.setManualPosition(lat, lng);
+
+            // Remplir les champs
+            document.getElementById('user-lat').value = lat.toFixed(6);
+            document.getElementById('user-lng').value = lng.toFixed(6);
+
+            // Désactiver le mode clic
+            this.disableMapClickMode();
+
+            this.showStatus('✓ Position manuelle définie par clic', 'info', 2000);
+        };
+
+        // Attacher le gestionnaire
+        this.map.on('click', this.mapClickHandler);
+        this.showStatus('📍 Cliquez sur la carte pour définir votre position', 'info', 5000);
+    }
+
+    /**
+     * Désactive le mode de clic sur carte
+     */
+    disableMapClickMode() {
+        this.isWaitingForMapClick = false;
+        const clickMapBtn = document.getElementById('click-map-position');
+        clickMapBtn.classList.remove('active');
+        clickMapBtn.textContent = '📍 Cliquer sur la carte';
+
+        // Retirer le curseur crosshair
+        document.getElementById('map').classList.remove('crosshair-cursor');
+
+        // Détacher le gestionnaire
+        if (this.mapClickHandler) {
+            this.map.off('click', this.mapClickHandler);
+            this.mapClickHandler = null;
+        }
+    }
+
+    /**
+     * Définit une position manuelle
+     */
+    setManualPosition(lat, lng) {
+        this.userPosition = { lat, lng };
+
+        // Créer ou mettre à jour le marqueur manuel (orange)
+        if (!this.userMarker) {
+            const manualIcon = L.divIcon({
+                className: 'manual-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                html: '<div style="background: #FF6B6B; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>'
+            });
+
+            this.userMarker = L.marker([lat, lng], {
+                icon: manualIcon,
+                title: 'Votre position (manuelle)'
+            }).addTo(this.map);
+        } else {
+            // Mettre à jour l'icône pour orange si c'était GPS
+            const manualIcon = L.divIcon({
+                className: 'manual-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                html: '<div style="background: #FF6B6B; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>'
+            });
+            this.userMarker.setIcon(manualIcon);
+            this.userMarker.setLatLng([lat, lng]);
+        }
+
+        // Afficher la distance
+        this.distanceContainer.classList.remove('hidden');
+
+        // Mettre à jour la direction et la ligne
+        this.updateDirection();
+        this.updateGeodesicLine();
+
+        // Centrer la vue
+        if (this.target) {
+            const bounds = L.latLngBounds([
+                [lat, lng],
+                [this.target.lat, this.target.lng]
+            ]);
+            this.map.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+            this.map.setView([lat, lng], 13);
+        }
     }
 
     /**

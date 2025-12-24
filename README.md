@@ -6,9 +6,12 @@ Application web responsive affichant une carte interactive avec une flèche indi
 
 - **Carte interactive** : Affichage OpenStreetMap avec navigation
 - **Géolocalisation GPS** : Localisation en temps réel de l'utilisateur
+- **Position manuelle** : Définition manuelle de votre position (clic sur carte ou saisie de coordonnées)
 - **Boussole directionnelle** : Flèche pointant vers la destination
 - **Ligne géodésique** : Tracé orthodromique (great circle) tenant compte de la courbure terrestre
 - **Calcul de distance** : Affichage de la distance jusqu'à la cible
+- **Destinations sauvegardées** : Système de sauvegarde avec localStorage et favoris
+- **Partage par URL** : Partage de destinations via hash fragment
 - **Interface responsive** : Optimisée pour mobile et desktop
 - **Configuration flexible** : Changement de destination à la volée
 
@@ -52,14 +55,42 @@ L'application est constituée de fichiers statiques. Déployez simplement les fi
 
 ## 📱 Utilisation
 
+### Mode GPS (par défaut)
 1. **Autoriser la géolocalisation** : Acceptez la demande de permission GPS
 2. **Autoriser l'orientation** (iOS) : Acceptez la demande de permission boussole
-3. **Observer la flèche** : Elle pointe vers la destination (Tour Eiffel par défaut)
-4. **Visualiser la trajectoire** : Une ligne pointillée bleue montre le chemin orthodromique (great circle) tenant compte de la courbure terrestre
-5. **Changer de destination** :
-   - Cliquez sur l'icône ⚙️ en bas à droite
+3. **Visualiser la trajectoire** : Une ligne pointillée bleue montre le chemin orthodromique (great circle) tenant compte de la courbure terrestre
+4. **Observer votre position** : Un marqueur bleu indique votre position GPS
+
+### Mode Position Manuelle
+Si le GPS n'est pas disponible (en intérieur, permission refusée, etc.) :
+1. **Ouvrir le panneau de configuration** : Cliquez sur ⚙️ en bas à droite
+2. **Activer le mode manuel** : Sélectionnez "📌 Position manuelle"
+3. **Définir votre position** :
+   - **Option 1 - Clic sur carte** : Cliquez sur "📍 Cliquer sur la carte" puis sur votre position
+   - **Option 2 - Coordonnées** : Saisissez latitude et longitude manuellement
+4. **Observer votre position** : Un marqueur orange indique votre position manuelle
+
+### Gérer les destinations
+1. **Changer de destination** :
+   - Ouvrez le panneau de configuration (⚙️)
    - Entrez les nouvelles coordonnées (latitude, longitude)
-   - Cliquez sur "Mettre à jour"
+   - Cliquez sur "Aller à cette destination"
+
+2. **Sauvegarder une destination** :
+   - Définissez la destination souhaitée
+   - Donnez-lui un nom (optionnel)
+   - Cliquez sur "💾 Sauvegarder cette destination"
+
+3. **Partager une destination** :
+   - Cliquez sur "🔗 Partager cette destination"
+   - L'URL est copiée dans le presse-papiers
+   - Partagez le lien par SMS, email, messagerie, etc.
+
+4. **Charger une destination sauvegardée** :
+   - Cliquez sur une destination dans la liste
+   - Ajoutez-la en favoris avec ★
+   - Partagez-la avec 🔗
+   - Supprimez-la avec 🗑️
 
 ## 🛠️ Technologies
 
@@ -90,15 +121,27 @@ direction-on-map/
 
 ### Classes principales
 
+**`DestinationManager`** : Gestion des destinations sauvegardées
+- `loadDestinations()` : Charge les destinations depuis localStorage
+- `addDestination()` : Ajoute une nouvelle destination
+- `deleteDestination()` : Supprime une destination
+- `toggleFavorite()` : Toggle le statut favori
+- `getAllDestinations()` : Récupère toutes les destinations
+
 **`DirectionalMapApp`** : Classe principale de l'application
 - `initMap()` : Initialisation de la carte Leaflet
 - `startGeolocation()` : Démarrage du suivi GPS
 - `startOrientation()` : Activation des capteurs d'orientation
+- `setPositionMode()` : Bascule entre mode GPS et manuel
+- `setManualPosition()` : Définit une position manuelle
+- `enableMapClickMode()` : Active le mode clic sur carte
 - `calculateBearing()` : Calcul de l'azimut vers la cible
 - `calculateDistance()` : Calcul de la distance (formule haversine)
 - `calculateGreatCircle()` : Calcul des points intermédiaires orthodromiques (SLERP)
 - `updateGeodesicLine()` : Affichage de la ligne géodésique sur la carte
-- `updateDirection()` : Mise à jour de la flèche et des informations
+- `updateDirection()` : Mise à jour de la distance
+- `parseURLHash()` : Charge une destination depuis l'URL
+- `shareDestination()` : Copie l'URL de partage dans le presse-papiers
 
 ## 🧮 Calculs géographiques
 
@@ -160,11 +203,12 @@ Cette ligne suit la courbure de la Terre et représente la direction réelle que
 
 ## 🔒 Sécurité et confidentialité
 
-- ✅ Aucune donnée persistée
+- ✅ Données persistées uniquement en local (localStorage)
 - ✅ Aucun tracking utilisateur
 - ✅ Aucune connexion à un backend
 - ✅ Dépendances open source uniquement (Leaflet)
 - ✅ Fonctionnement 100% client-side
+- ✅ Partage sécurisé via hash fragment (pas envoyé au serveur)
 
 ## ⚠️ Limitations connues
 
@@ -198,6 +242,11 @@ Cette ligne suit la courbure de la Terre et représente la direction réelle que
 - **Latitude** : 48.858370 (Tour Eiffel)
 - **Longitude** : 2.294481 (Paris, France)
 
+### Position
+- **Mode par défaut** : GPS automatique
+- **Marqueur GPS** : Bleu
+- **Marqueur manuel** : Orange
+
 ### Carte
 - **Centre initial** : France (46.603354, 1.888334)
 - **Zoom initial** : 6
@@ -207,6 +256,10 @@ Cette ligne suit la courbure de la Terre et représente la direction réelle que
 - **Fréquence orientation** : 15 Hz max
 - **Buffer de lissage** : 5 valeurs
 - **GPS enableHighAccuracy** : true
+
+### Stockage
+- **localStorage** : Destinations sauvegardées avec favoris
+- **URL Hash** : Format `#lat,lng` ou `#lat,lng,nom`
 
 ## 🔧 Personnalisation
 

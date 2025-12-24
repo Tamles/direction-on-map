@@ -36,6 +36,14 @@ html, body {
     z-index: 1;
 }
 
+#map.crosshair-cursor {
+    cursor: crosshair !important;
+}
+
+#map.crosshair-cursor * {
+    cursor: crosshair !important;
+}
+
 /* Bannière d'information */
 .info-banner {
     position: absolute;
@@ -270,6 +278,109 @@ html, body {
     margin-bottom: 16px;
     font-size: 16px;
     color: var(--text-color);
+}
+
+/* Mode de position (GPS/Manuel) */
+.position-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 2px solid #E0E0E0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.radio-option:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
+.radio-option input[type="radio"] {
+    margin-right: 10px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.radio-option input[type="radio"]:checked + span {
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.radio-option input[type="radio"]:checked {
+    accent-color: var(--secondary-color);
+}
+
+.radio-option span {
+    flex: 1;
+    font-size: 14px;
+}
+
+/* Contenu position manuelle */
+.manual-position-content {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f0f8ff;
+    border-radius: 8px;
+    border: 1px dashed var(--secondary-color);
+}
+
+.manual-position-content.hidden {
+    display: none;
+}
+
+.manual-position-content .hint {
+    margin: 12px 0;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Bouton clic sur carte */
+.btn-map-click {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--secondary-color) 0%, #45b8b0 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3);
+}
+
+.btn-map-click:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.4);
+}
+
+.btn-map-click:active {
+    transform: translateY(0);
+}
+
+.btn-map-click.active {
+    background: linear-gradient(135deg, #FF6B6B 0%, #ff5555 100%);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
+    }
 }
 
 /* Divider */

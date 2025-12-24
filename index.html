@@ -35,9 +35,41 @@
         <div id="config-panel" class="config-panel">
             <button id="toggle-config" class="config-toggle" aria-label="Configuration">⚙️</button>
             <div id="config-content" class="config-content hidden">
+                <!-- Section Ma position -->
+                <div class="config-section">
+                    <h3>📍 Ma position</h3>
+                    <div class="position-mode">
+                        <label class="radio-option">
+                            <input type="radio" name="position-mode" value="gps" id="mode-gps" checked>
+                            <span>🛰️ GPS automatique</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="position-mode" value="manual" id="mode-manual">
+                            <span>📌 Position manuelle</span>
+                        </label>
+                    </div>
+
+                    <!-- Contenu mode manuel -->
+                    <div id="manual-position-content" class="manual-position-content hidden">
+                        <button id="click-map-position" class="btn-map-click">📍 Cliquer sur la carte</button>
+                        <p class="hint">ou saisissez les coordonnées :</p>
+                        <div class="input-group">
+                            <label for="user-lat">Latitude:</label>
+                            <input type="number" id="user-lat" step="0.000001" placeholder="Ex: 48.858370">
+                        </div>
+                        <div class="input-group">
+                            <label for="user-lng">Longitude:</label>
+                            <input type="number" id="user-lng" step="0.000001" placeholder="Ex: 2.294481">
+                        </div>
+                        <button id="apply-manual-position" class="btn-primary">Appliquer la position</button>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
                 <!-- Section Destinations sauvegardées -->
                 <div class="config-section">
-                    <h3>📍 Destinations sauvegardées</h3>
+                    <h3>🎯 Destinations sauvegardées</h3>
                     <div id="saved-destinations-list" class="destinations-list">
                         <!-- Liste générée dynamiquement -->
                     </div>
@@ -48,7 +80,7 @@
 
                 <!-- Section Nouvelle destination -->
                 <div class="config-section">
-                    <h3>🎯 Destination manuelle</h3>
+                    <h3>🗺️ Destination</h3>
                     <div class="input-group">
                         <label for="target-lat">Latitude:</label>
                         <input type="number" id="target-lat" step="0.000001" value="48.858370">
