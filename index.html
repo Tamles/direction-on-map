@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Application web directionnelle avec carte OpenStreetMap">
+    <title>Direction sur Carte</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Message d'information -->
+        <div id="info-banner" class="info-banner">
+            <span>📍 Direction approximative</span>
+        </div>
+
+        <!-- Carte -->
+        <div id="map"></div>
+
+        <!-- Flèche directionnelle -->
+        <div id="arrow-container" class="arrow-container hidden">
+            <svg id="arrow" class="arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="shadow">
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+                    </filter>
+                </defs>
+                <polygon points="50,10 70,90 50,75 30,90" fill="#FF6B6B" stroke="#fff" stroke-width="3" filter="url(#shadow)"/>
+            </svg>
+            <div id="distance" class="distance"></div>
+        </div>
+
+        <!-- Messages d'erreur/statut -->
+        <div id="status" class="status hidden"></div>
+
+        <!-- Panneau de configuration (optionnel) -->
+        <div id="config-panel" class="config-panel">
+            <button id="toggle-config" class="config-toggle" aria-label="Configuration">⚙️</button>
+            <div id="config-content" class="config-content hidden">
+                <h3>Destination</h3>
+                <div class="input-group">
+                    <label for="target-lat">Latitude:</label>
+                    <input type="number" id="target-lat" step="0.000001" value="48.858370">
+                </div>
+                <div class="input-group">
+                    <label for="target-lng">Longitude:</label>
+                    <input type="number" id="target-lng" step="0.000001" value="2.294481">
+                </div>
+                <button id="update-target" class="btn-primary">Mettre à jour</button>
+                <p class="hint">Par défaut: Tour Eiffel, Paris</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <script src="app.js"></script>
+</body>
+</html>
