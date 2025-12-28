@@ -96,6 +96,45 @@ html, body {
     outline-offset: 2px;
 }
 
+/* Bouton de recentrage */
+.recenter-button {
+    position: absolute;
+    bottom: 78px; /* 20px + 48px (hauteur du bouton refresh) + 10px de marge */
+    left: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: none;
+    box-shadow: var(--shadow-strong);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, box-shadow 0.2s;
+    z-index: 1000;
+}
+
+.recenter-button:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.recenter-button:active {
+    transform: scale(0.9);
+}
+
+.recenter-button:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+
+.recenter-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Conteneur de la distance */
 .distance-container {
     position: absolute;

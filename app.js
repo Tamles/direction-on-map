@@ -208,6 +208,9 @@ class DirectionalMapApp {
             // Initialiser le bouton de rafraîchissement
             this.initRefreshButton();
 
+            // Initialiser le bouton de recentrage
+            this.initRecenterButton();
+
             // Démarrer la géolocalisation
             this.startGeolocation();
 
@@ -717,6 +720,34 @@ class DirectionalMapApp {
         refreshBtn.addEventListener('click', () => {
             window.location.reload();
         });
+    }
+
+    /**
+     * Initialise le bouton de recentrage
+     */
+    initRecenterButton() {
+        const recenterBtn = document.getElementById('recenter-button');
+        recenterBtn.addEventListener('click', () => {
+            this.recenterOnUserPosition();
+        });
+    }
+
+    /**
+     * Centre la carte sur la position actuelle avec un zoom piéton
+     */
+    recenterOnUserPosition() {
+        if (!this.userPosition) {
+            this.showStatus('❌ Position non disponible', 'error', 2000);
+            return;
+        }
+
+        // Zoom piéton (niveau 18 = environ 100m de rayon visible)
+        this.map.setView([this.userPosition.lat, this.userPosition.lng], 18, {
+            animate: true,
+            duration: 0.5
+        });
+
+        this.showStatus('📍 Centré sur votre position', 'info', 1500);
     }
 
     /**
