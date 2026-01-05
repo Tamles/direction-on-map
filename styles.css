@@ -36,6 +36,14 @@ html, body {
     z-index: 1;
 }
 
+#map.crosshair-cursor {
+    cursor: crosshair !important;
+}
+
+#map.crosshair-cursor * {
+    cursor: crosshair !important;
+}
+
 /* Bannière d'information */
 .info-banner {
     position: absolute;
@@ -54,42 +62,103 @@ html, body {
     white-space: nowrap;
 }
 
-/* Conteneur de la flèche */
-.arrow-container {
+/* Bouton de rafraîchissement */
+.refresh-button {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 500;
+    bottom: 20px;
+    left: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: none;
+    box-shadow: var(--shadow-strong);
+    font-size: 22px;
+    cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    transition: transform 0.3s ease, box-shadow 0.2s;
+    z-index: 1000;
+}
+
+.refresh-button:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.refresh-button:active {
+    transform: scale(0.95) rotate(180deg);
+}
+
+.refresh-button:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+
+/* Bouton de recentrage */
+.recenter-button {
+    position: absolute;
+    bottom: 78px; /* 20px + 48px (hauteur du bouton refresh) + 10px de marge */
+    left: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: none;
+    box-shadow: var(--shadow-strong);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, box-shadow 0.2s;
+    z-index: 1000;
+}
+
+.recenter-button:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.recenter-button:active {
+    transform: scale(0.9);
+}
+
+.recenter-button:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+
+.recenter-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Conteneur de la distance */
+.distance-container {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
     pointer-events: none;
 }
 
-.arrow-container.hidden {
+.distance-container.hidden {
     display: none;
-}
-
-/* Flèche SVG */
-.arrow {
-    width: 80px;
-    height: 80px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 /* Distance */
 .distance {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 16px;
-    font-size: 13px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-color);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-strong);
 }
 
 /* Messages de statut */
@@ -228,6 +297,299 @@ html, body {
     text-align: center;
 }
 
+/* Bouton secondaire */
+.btn-secondary {
+    width: 100%;
+    padding: 10px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-secondary:hover {
+    background: #ff5555;
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
+}
+
+/* Bouton de partage */
+.btn-share {
+    width: 100%;
+    padding: 10px;
+    background: #8E44AD;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+}
+
+.btn-share:hover {
+    background: #7D3C98;
+}
+
+.btn-share:active {
+    transform: scale(0.98);
+}
+
+/* Section de configuration */
+.config-section {
+    margin-bottom: 20px;
+}
+
+.config-section h3 {
+    margin-bottom: 16px;
+    font-size: 16px;
+    color: var(--text-color);
+}
+
+/* Mode de position (GPS/Manuel) */
+.position-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 2px solid #E0E0E0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.radio-option:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
+.radio-option input[type="radio"] {
+    margin-right: 10px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.radio-option input[type="radio"]:checked + span {
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.radio-option input[type="radio"]:checked {
+    accent-color: var(--secondary-color);
+}
+
+.radio-option span {
+    flex: 1;
+    font-size: 14px;
+}
+
+/* Contenu position manuelle */
+.manual-position-content {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f0f8ff;
+    border-radius: 8px;
+    border: 1px dashed var(--secondary-color);
+}
+
+.manual-position-content.hidden {
+    display: none;
+}
+
+.manual-position-content .hint {
+    margin: 12px 0;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Bouton clic sur carte */
+.btn-map-click {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--secondary-color) 0%, #45b8b0 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3);
+}
+
+.btn-map-click:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.4);
+}
+
+.btn-map-click:active {
+    transform: translateY(0);
+}
+
+.btn-map-click.active {
+    background: linear-gradient(135deg, #FF6B6B 0%, #ff5555 100%);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
+    }
+}
+
+/* Divider */
+.divider {
+    height: 1px;
+    background: #E0E0E0;
+    margin: 20px 0;
+}
+
+/* Liste des destinations */
+.destinations-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+
+.destinations-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.destinations-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.destinations-list::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.destinations-list::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* Item de destination */
+.destination-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+}
+
+.destination-item:hover {
+    background: #e9ecef;
+}
+
+.destination-info {
+    flex: 1;
+    cursor: pointer;
+}
+
+.destination-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-color);
+    margin-bottom: 2px;
+}
+
+.destination-coords {
+    font-size: 11px;
+    color: #666;
+}
+
+.destination-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #f8f9fa;
+    border-color: #999;
+}
+
+.btn-icon:active {
+    transform: scale(0.95);
+}
+
+.btn-icon.favorite {
+    color: #FFD700;
+}
+
+.btn-icon.delete {
+    color: #dc3545;
+}
+
+.btn-icon.delete:hover {
+    background: #ffe6e6;
+    border-color: #dc3545;
+}
+
+.btn-icon.share {
+    color: #8E44AD;
+}
+
+.btn-icon.share:hover {
+    background: #f3e5f5;
+    border-color: #8E44AD;
+}
+
+/* État vide */
+.empty-state {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+.empty-state.hidden {
+    display: none;
+}
+
+/* Section sauvegarde */
+.save-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #ddd;
+}
+
 /* Responsive - Tablettes et plus grand */
 @media (min-width: 768px) {
     .info-banner {
@@ -236,14 +598,9 @@ html, body {
         padding: 14px 28px;
     }
 
-    .arrow {
-        width: 100px;
-        height: 100px;
-    }
-
     .distance {
-        font-size: 15px;
-        padding: 10px 20px;
+        font-size: 16px;
+        padding: 12px 24px;
     }
 
     .status {

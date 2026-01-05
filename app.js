@@ -3,6 +3,145 @@
  * Affiche une flèche pointant vers une destination depuis la position utilisateur
  */
 
+/**
+ * Gestionnaire de destinations sauvegardées avec localStorage
+ */
+class DestinationManager {
+    constructor() {
+        this.storageKey = 'directional-map-destinations';
+        this.destinations = this.loadDestinations();
+    }
+
+    /**
+     * Charge les destinations depuis localStorage
+     */
+    loadDestinations() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : [];
+        } catch (error) {
+            console.error('Erreur de chargement des destinations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Sauvegarde les destinations dans localStorage
+     */
+    saveDestinations() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.destinations));
+            return true;
+        } catch (error) {
+            console.error('Erreur de sauvegarde des destinations:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Ajoute une nouvelle destination
+     */
+    addDestination(name, lat, lng) {
+        const destination = {
+            id: this.generateId(),
+            name: name.trim(),
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            createdAt: Date.now(),
+            favorite: false
+        };
+
+        this.destinations.push(destination);
+        this.saveDestinations();
+        return destination;
+    }
+
+    /**
+     * Supprime une destination par ID
+     */
+    deleteDestination(id) {
+        const index = this.destinations.findIndex(d => d.id === id);
+        if (index !== -1) {
+            this.destinations.splice(index, 1);
+            this.saveDestinations();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Récupère une destination par ID
+     */
+    getDestination(id) {
+        return this.destinations.find(d => d.id === id);
+    }
+
+    /**
+     * Récupère toutes les destinations
+     */
+    getAllDestinations() {
+        return [...this.destinations];
+    }
+
+    /**
+     * Toggle le statut favori d'une destination
+     */
+    toggleFavorite(id) {
+        const destination = this.getDestination(id);
+        if (destination) {
+            destination.favorite = !destination.favorite;
+            this.saveDestinations();
+            return destination.favorite;
+        }
+        return false;
+    }
+
+    /**
+     * Met à jour une destination
+     */
+    updateDestination(id, updates) {
+        const destination = this.getDestination(id);
+        if (destination) {
+            Object.assign(destination, updates);
+            this.saveDestinations();
+            return destination;
+        }
+        return null;
+    }
+
+    /**
+     * Génère un ID unique
+     */
+    generateId() {
+        return `dest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    /**
+     * Exporte les destinations en JSON
+     */
+    exportToJSON() {
+        return JSON.stringify(this.destinations, null, 2);
+    }
+
+    /**
+     * Importe des destinations depuis JSON
+     */
+    importFromJSON(jsonString) {
+        try {
+            const imported = JSON.parse(jsonString);
+            if (Array.isArray(imported)) {
+                this.destinations = imported;
+                this.saveDestinations();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Erreur d\'importation:', error);
+            return false;
+        }
+    }
+}
+
 class DirectionalMapApp {
     constructor() {
         // Configuration
@@ -11,14 +150,23 @@ class DirectionalMapApp {
             lng: 2.294481
         };
 
+        // Gestionnaire de destinations
+        this.destinationManager = new DestinationManager();
+
         // État de l'application
         this.map = null;
         this.userPosition = null;
         this.userMarker = null;
         this.targetMarker = null;
+        this.geodesicLine = null;
         this.deviceHeading = 0;
         this.watchId = null;
         this.orientationEnabled = false;
+
+        // Mode de position (GPS / Manuel)
+        this.positionMode = 'gps'; // 'gps' ou 'manual'
+        this.isWaitingForMapClick = false;
+        this.mapClickHandler = null;
 
         // Throttling
         this.lastOrientationUpdate = 0;
@@ -29,8 +177,7 @@ class DirectionalMapApp {
         this.headingBufferSize = 5;
 
         // Éléments DOM
-        this.arrowContainer = document.getElementById('arrow-container');
-        this.arrow = document.getElementById('arrow');
+        this.distanceContainer = document.getElementById('distance-container');
         this.distanceElement = document.getElementById('distance');
         this.statusElement = document.getElementById('status');
 
@@ -52,8 +199,17 @@ class DirectionalMapApp {
             // Initialiser la carte
             this.initMap();
 
+            // Charger la destination depuis l'URL si présente
+            this.parseURLHash();
+
             // Initialiser le panneau de configuration
             this.initConfigPanel();
+
+            // Initialiser le bouton de rafraîchissement
+            this.initRefreshButton();
+
+            // Initialiser le bouton de recentrage
+            this.initRecenterButton();
 
             // Démarrer la géolocalisation
             this.startGeolocation();
@@ -168,11 +324,14 @@ class DirectionalMapApp {
             this.userMarker.setLatLng([latitude, longitude]);
         }
 
-        // Afficher la flèche
-        this.arrowContainer.classList.remove('hidden');
+        // Afficher la distance
+        this.distanceContainer.classList.remove('hidden');
 
-        // Mettre à jour la direction et la distance
+        // Mettre à jour la distance
         this.updateDirection();
+
+        // Mettre à jour la ligne géodésique
+        this.updateGeodesicLine();
 
         // Message de précision GPS
         if (accuracy > 100) {
@@ -374,24 +533,10 @@ class DirectionalMapApp {
     }
 
     /**
-     * Met à jour la direction et la distance affichées
+     * Met à jour la distance affichée
      */
     updateDirection() {
         if (!this.userPosition) return;
-
-        // Calculer le bearing vers la cible
-        const bearing = this.calculateBearing(
-            this.userPosition.lat,
-            this.userPosition.lng,
-            this.target.lat,
-            this.target.lng
-        );
-
-        // Calculer l'angle relatif à afficher
-        const relativeAngle = this.normalizeDegrees(bearing - this.deviceHeading);
-
-        // Rotation de la flèche
-        this.arrow.style.transform = `rotate(${relativeAngle}deg)`;
 
         // Calculer et afficher la distance
         const distance = this.calculateDistance(
@@ -444,6 +589,92 @@ class DirectionalMapApp {
     }
 
     /**
+     * Calcule les points intermédiaires d'un great circle (orthodromie)
+     * entre deux points géographiques
+     * @param {number} lat1 - Latitude du point de départ
+     * @param {number} lng1 - Longitude du point de départ
+     * @param {number} lat2 - Latitude du point d'arrivée
+     * @param {number} lng2 - Longitude du point d'arrivée
+     * @param {number} numPoints - Nombre de points intermédiaires
+     * @returns {Array} Tableau de points [lat, lng]
+     */
+    calculateGreatCircle(lat1, lng1, lat2, lng2, numPoints = 100) {
+        const points = [];
+
+        // Convertir en radians
+        const φ1 = lat1 * (Math.PI / 180);
+        const λ1 = lng1 * (Math.PI / 180);
+        const φ2 = lat2 * (Math.PI / 180);
+        const λ2 = lng2 * (Math.PI / 180);
+
+        // Calculer la distance angulaire
+        const Δφ = φ2 - φ1;
+        const Δλ = λ2 - λ1;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+        const δ = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Interpolation sphérique (SLERP)
+        for (let i = 0; i <= numPoints; i++) {
+            const f = i / numPoints;
+
+            // Formule d'interpolation great circle
+            const A = Math.sin((1 - f) * δ) / Math.sin(δ);
+            const B = Math.sin(f * δ) / Math.sin(δ);
+
+            const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+            const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+            const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+
+            const φi = Math.atan2(z, Math.sqrt(x * x + y * y));
+            const λi = Math.atan2(y, x);
+
+            // Convertir en degrés
+            const lat = φi * (180 / Math.PI);
+            const lng = λi * (180 / Math.PI);
+
+            points.push([lat, lng]);
+        }
+
+        return points;
+    }
+
+    /**
+     * Met à jour ou crée la ligne géodésique sur la carte
+     */
+    updateGeodesicLine() {
+        if (!this.userPosition) return;
+
+        // Supprimer l'ancienne ligne si elle existe
+        if (this.geodesicLine) {
+            this.map.removeLayer(this.geodesicLine);
+        }
+
+        // Calculer les points du great circle
+        const points = this.calculateGreatCircle(
+            this.userPosition.lat,
+            this.userPosition.lng,
+            this.target.lat,
+            this.target.lng
+        );
+
+        // Créer la ligne avec un style distinctif
+        this.geodesicLine = L.polyline(points, {
+            color: '#4ECDC4',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '10, 10',
+            lineJoin: 'round'
+        }).addTo(this.map);
+
+        // Ajouter une info-bulle
+        this.geodesicLine.bindPopup('<b>Trajectoire orthodromique</b><br>Chemin le plus court sur la sphère terrestre');
+    }
+
+    /**
      * Normalise un angle en degrés sur l'intervalle [0, 360)
      */
     normalizeDegrees(degrees) {
@@ -482,18 +713,110 @@ class DirectionalMapApp {
     }
 
     /**
+     * Initialise le bouton de rafraîchissement
+     */
+    initRefreshButton() {
+        const refreshBtn = document.getElementById('refresh-button');
+        refreshBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
+    /**
+     * Initialise le bouton de recentrage
+     */
+    initRecenterButton() {
+        const recenterBtn = document.getElementById('recenter-button');
+        recenterBtn.addEventListener('click', () => {
+            this.recenterOnUserPosition();
+        });
+    }
+
+    /**
+     * Centre la carte sur la position actuelle avec un zoom piéton
+     */
+    recenterOnUserPosition() {
+        if (!this.userPosition) {
+            this.showStatus('❌ Position non disponible', 'error', 2000);
+            return;
+        }
+
+        // Zoom piéton (niveau 18 = environ 100m de rayon visible)
+        this.map.setView([this.userPosition.lat, this.userPosition.lng], 18, {
+            animate: true,
+            duration: 0.5
+        });
+
+        this.showStatus('📍 Centré sur votre position', 'info', 1500);
+    }
+
+    /**
      * Initialise le panneau de configuration
      */
     initConfigPanel() {
         const toggleBtn = document.getElementById('toggle-config');
         const configContent = document.getElementById('config-content');
         const updateBtn = document.getElementById('update-target');
+        const saveBtn = document.getElementById('save-destination');
+        const shareBtn = document.getElementById('share-destination');
         const latInput = document.getElementById('target-lat');
         const lngInput = document.getElementById('target-lng');
+        const nameInput = document.getElementById('destination-name');
+
+        // Éléments pour le mode position
+        const modeGPS = document.getElementById('mode-gps');
+        const modeManual = document.getElementById('mode-manual');
+        const manualContent = document.getElementById('manual-position-content');
+        const clickMapBtn = document.getElementById('click-map-position');
+        const applyPositionBtn = document.getElementById('apply-manual-position');
+        const userLatInput = document.getElementById('user-lat');
+        const userLngInput = document.getElementById('user-lng');
 
         // Toggle panneau
         toggleBtn.addEventListener('click', () => {
             configContent.classList.toggle('hidden');
+            if (!configContent.classList.contains('hidden')) {
+                this.renderDestinations();
+            }
+        });
+
+        // Changement de mode position (GPS/Manuel)
+        modeGPS.addEventListener('change', () => {
+            if (modeGPS.checked) {
+                this.setPositionMode('gps');
+                manualContent.classList.add('hidden');
+            }
+        });
+
+        modeManual.addEventListener('change', () => {
+            if (modeManual.checked) {
+                this.setPositionMode('manual');
+                manualContent.classList.remove('hidden');
+            }
+        });
+
+        // Bouton "Cliquer sur la carte"
+        clickMapBtn.addEventListener('click', () => {
+            this.enableMapClickMode();
+        });
+
+        // Bouton "Appliquer la position"
+        applyPositionBtn.addEventListener('click', () => {
+            const lat = parseFloat(userLatInput.value);
+            const lng = parseFloat(userLngInput.value);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                this.showStatus('❌ Coordonnées invalides', 'error', 3000);
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                this.showStatus('❌ Coordonnées hors limites', 'error', 3000);
+                return;
+            }
+
+            this.setManualPosition(lat, lng);
+            this.showStatus('✓ Position manuelle définie', 'info', 2000);
         });
 
         // Mise à jour de la cible
@@ -511,24 +834,424 @@ class DirectionalMapApp {
                 return;
             }
 
-            this.target = { lat, lng };
-            this.addTargetMarker();
-            this.updateDirection();
-
-            // Recentrer la carte si l'utilisateur est positionné
-            if (this.userPosition) {
-                const bounds = L.latLngBounds([
-                    [this.userPosition.lat, this.userPosition.lng],
-                    [this.target.lat, this.target.lng]
-                ]);
-                this.map.fitBounds(bounds, { padding: [50, 50] });
-            } else {
-                this.map.setView([lat, lng], 13);
-            }
-
+            this.setTarget(lat, lng);
             configContent.classList.add('hidden');
             this.showStatus('✓ Destination mise à jour', 'info', 2000);
         });
+
+        // Sauvegarde de la destination
+        saveBtn.addEventListener('click', () => {
+            const lat = parseFloat(latInput.value);
+            const lng = parseFloat(lngInput.value);
+            let name = nameInput.value.trim();
+
+            if (isNaN(lat) || isNaN(lng)) {
+                this.showStatus('❌ Coordonnées invalides', 'error', 3000);
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                this.showStatus('❌ Coordonnées hors limites', 'error', 3000);
+                return;
+            }
+
+            // Générer un nom si vide
+            if (!name) {
+                name = `Destination ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
+
+            this.destinationManager.addDestination(name, lat, lng);
+            nameInput.value = '';
+            this.renderDestinations();
+            this.showStatus('✓ Destination sauvegardée', 'info', 2000);
+        });
+
+        // Partage de la destination
+        shareBtn.addEventListener('click', () => {
+            const name = nameInput.value.trim() || null;
+
+            // Mettre à jour l'URL avec le nom si présent
+            if (name) {
+                this.updateURLHash(name);
+            }
+
+            // Copier l'URL dans le presse-papiers
+            this.shareDestination();
+        });
+
+        // Rendu initial
+        this.renderDestinations();
+    }
+
+    /**
+     * Affiche la liste des destinations sauvegardées
+     */
+    renderDestinations() {
+        const list = document.getElementById('saved-destinations-list');
+        const emptyState = document.getElementById('empty-destinations');
+        const destinations = this.destinationManager.getAllDestinations();
+
+        // Vider la liste
+        list.innerHTML = '';
+
+        if (destinations.length === 0) {
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        // Trier : favoris d'abord, puis par date décroissante
+        destinations.sort((a, b) => {
+            if (a.favorite && !b.favorite) return -1;
+            if (!a.favorite && b.favorite) return 1;
+            return b.createdAt - a.createdAt;
+        });
+
+        // Créer les éléments
+        destinations.forEach(dest => {
+            const item = document.createElement('div');
+            item.className = 'destination-item';
+
+            const info = document.createElement('div');
+            info.className = 'destination-info';
+            info.innerHTML = `
+                <div class="destination-name">${dest.favorite ? '⭐ ' : ''}${this.escapeHtml(dest.name)}</div>
+                <div class="destination-coords">${dest.lat.toFixed(6)}, ${dest.lng.toFixed(6)}</div>
+            `;
+            info.addEventListener('click', () => this.loadDestination(dest.id));
+
+            const actions = document.createElement('div');
+            actions.className = 'destination-actions';
+
+            // Bouton favori
+            const favoriteBtn = document.createElement('button');
+            favoriteBtn.className = `btn-icon ${dest.favorite ? 'favorite' : ''}`;
+            favoriteBtn.innerHTML = dest.favorite ? '★' : '☆';
+            favoriteBtn.title = 'Favori';
+            favoriteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleFavorite(dest.id);
+            });
+
+            // Bouton partager
+            const shareBtn = document.createElement('button');
+            shareBtn.className = 'btn-icon share';
+            shareBtn.innerHTML = '🔗';
+            shareBtn.title = 'Partager';
+            shareBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Charger temporairement la destination pour mettre à jour l'URL
+                const oldTarget = { ...this.target };
+                this.target = { lat: dest.lat, lng: dest.lng };
+                this.updateURLHash(dest.name);
+                await this.shareDestination();
+                // Restaurer la cible précédente
+                this.target = oldTarget;
+            });
+
+            // Bouton supprimer
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-icon delete';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = 'Supprimer';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteDestination(dest.id);
+            });
+
+            actions.appendChild(favoriteBtn);
+            actions.appendChild(shareBtn);
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(info);
+            item.appendChild(actions);
+            list.appendChild(item);
+        });
+    }
+
+    /**
+     * Charge une destination sauvegardée
+     */
+    loadDestination(id) {
+        const dest = this.destinationManager.getDestination(id);
+        if (dest) {
+            this.setTarget(dest.lat, dest.lng, dest.name);
+            document.getElementById('config-content').classList.add('hidden');
+            this.showStatus(`✓ ${dest.name}`, 'info', 2000);
+        }
+    }
+
+    /**
+     * Définit une nouvelle cible
+     */
+    setTarget(lat, lng, name = null) {
+        this.target = { lat, lng };
+        this.addTargetMarker();
+        this.updateDirection();
+        this.updateGeodesicLine();
+
+        // Mettre à jour l'URL pour le partage
+        this.updateURLHash(name);
+
+        // Recentrer la carte si l'utilisateur est positionné
+        if (this.userPosition) {
+            const bounds = L.latLngBounds([
+                [this.userPosition.lat, this.userPosition.lng],
+                [this.target.lat, this.target.lng]
+            ]);
+            this.map.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+            this.map.setView([lat, lng], 13);
+        }
+    }
+
+    /**
+     * Toggle le statut favori d'une destination
+     */
+    toggleFavorite(id) {
+        this.destinationManager.toggleFavorite(id);
+        this.renderDestinations();
+    }
+
+    /**
+     * Supprime une destination
+     */
+    deleteDestination(id) {
+        if (confirm('Supprimer cette destination ?')) {
+            this.destinationManager.deleteDestination(id);
+            this.renderDestinations();
+            this.showStatus('✓ Destination supprimée', 'info', 2000);
+        }
+    }
+
+    /**
+     * Échappe les caractères HTML pour éviter XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Change le mode de position (GPS / Manuel)
+     */
+    setPositionMode(mode) {
+        this.positionMode = mode;
+
+        if (mode === 'gps') {
+            // Redémarrer le GPS
+            if (!this.watchId) {
+                this.startGeolocation();
+            }
+            this.showStatus('📡 Mode GPS activé', 'info', 2000);
+        } else {
+            // Arrêter le GPS
+            if (this.watchId !== null) {
+                navigator.geolocation.clearWatch(this.watchId);
+                this.watchId = null;
+            }
+            this.showStatus('📌 Mode position manuelle activé', 'info', 2000);
+        }
+    }
+
+    /**
+     * Active le mode de clic sur carte pour définir la position
+     */
+    enableMapClickMode() {
+        if (this.isWaitingForMapClick) {
+            // Désactiver si déjà actif
+            this.disableMapClickMode();
+            return;
+        }
+
+        this.isWaitingForMapClick = true;
+        const clickMapBtn = document.getElementById('click-map-position');
+        clickMapBtn.classList.add('active');
+        clickMapBtn.textContent = '❌ Annuler';
+
+        // Ajouter le curseur crosshair
+        document.getElementById('map').classList.add('crosshair-cursor');
+
+        // Créer le gestionnaire de clic
+        this.mapClickHandler = (e) => {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            this.setManualPosition(lat, lng);
+
+            // Remplir les champs
+            document.getElementById('user-lat').value = lat.toFixed(6);
+            document.getElementById('user-lng').value = lng.toFixed(6);
+
+            // Désactiver le mode clic
+            this.disableMapClickMode();
+
+            this.showStatus('✓ Position manuelle définie par clic', 'info', 2000);
+        };
+
+        // Attacher le gestionnaire
+        this.map.on('click', this.mapClickHandler);
+        this.showStatus('📍 Cliquez sur la carte pour définir votre position', 'info', 5000);
+    }
+
+    /**
+     * Désactive le mode de clic sur carte
+     */
+    disableMapClickMode() {
+        this.isWaitingForMapClick = false;
+        const clickMapBtn = document.getElementById('click-map-position');
+        clickMapBtn.classList.remove('active');
+        clickMapBtn.textContent = '📍 Cliquer sur la carte';
+
+        // Retirer le curseur crosshair
+        document.getElementById('map').classList.remove('crosshair-cursor');
+
+        // Détacher le gestionnaire
+        if (this.mapClickHandler) {
+            this.map.off('click', this.mapClickHandler);
+            this.mapClickHandler = null;
+        }
+    }
+
+    /**
+     * Définit une position manuelle
+     */
+    setManualPosition(lat, lng) {
+        this.userPosition = { lat, lng };
+
+        // Créer ou mettre à jour le marqueur manuel (orange)
+        if (!this.userMarker) {
+            const manualIcon = L.divIcon({
+                className: 'manual-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                html: '<div style="background: #FF6B6B; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>'
+            });
+
+            this.userMarker = L.marker([lat, lng], {
+                icon: manualIcon,
+                title: 'Votre position (manuelle)'
+            }).addTo(this.map);
+        } else {
+            // Mettre à jour l'icône pour orange si c'était GPS
+            const manualIcon = L.divIcon({
+                className: 'manual-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                html: '<div style="background: #FF6B6B; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>'
+            });
+            this.userMarker.setIcon(manualIcon);
+            this.userMarker.setLatLng([lat, lng]);
+        }
+
+        // Afficher la distance
+        this.distanceContainer.classList.remove('hidden');
+
+        // Mettre à jour la direction et la ligne
+        this.updateDirection();
+        this.updateGeodesicLine();
+
+        // Centrer la vue
+        if (this.target) {
+            const bounds = L.latLngBounds([
+                [lat, lng],
+                [this.target.lat, this.target.lng]
+            ]);
+            this.map.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+            this.map.setView([lat, lng], 13);
+        }
+    }
+
+    /**
+     * Parse le hash de l'URL pour charger une destination
+     * Format: #lat,lng ou #lat,lng,nom
+     * Exemple: #48.858370,2.294481,Tour%20Eiffel
+     */
+    parseURLHash() {
+        const hash = window.location.hash.substring(1); // Retirer le #
+        if (!hash) return;
+
+        const parts = hash.split(',');
+        if (parts.length < 2) return;
+
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        const name = parts.length >= 3 ? decodeURIComponent(parts[2]) : null;
+
+        // Valider les coordonnées
+        if (isNaN(lat) || isNaN(lng)) {
+            console.warn('Coordonnées invalides dans l\'URL:', hash);
+            return;
+        }
+
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            console.warn('Coordonnées hors limites dans l\'URL:', hash);
+            return;
+        }
+
+        // Charger la destination
+        this.target = { lat, lng };
+        this.addTargetMarker();
+
+        // Afficher un message
+        const message = name ? `📍 ${name}` : `📍 Destination partagée`;
+        console.log('Destination chargée depuis l\'URL:', { lat, lng, name });
+
+        // Mettre à jour les inputs
+        document.getElementById('target-lat').value = lat;
+        document.getElementById('target-lng').value = lng;
+        if (name) {
+            document.getElementById('destination-name').value = name;
+        }
+    }
+
+    /**
+     * Met à jour le hash de l'URL avec la destination actuelle
+     */
+    updateURLHash(name = null) {
+        const lat = this.target.lat.toFixed(6);
+        const lng = this.target.lng.toFixed(6);
+
+        let hash = `#${lat},${lng}`;
+        if (name) {
+            hash += `,${encodeURIComponent(name)}`;
+        }
+
+        // Mettre à jour l'URL sans recharger la page
+        history.replaceState(null, '', hash);
+    }
+
+    /**
+     * Copie l'URL de partage dans le presse-papiers
+     */
+    async shareDestination() {
+        const url = window.location.href;
+
+        try {
+            // Utiliser l'API Clipboard si disponible
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(url);
+                this.showStatus('✓ Lien copié dans le presse-papiers', 'info', 2000);
+            } else {
+                // Fallback pour les navigateurs plus anciens
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.showStatus('✓ Lien copié', 'info', 2000);
+            }
+        } catch (error) {
+            console.error('Erreur de copie:', error);
+            // Afficher l'URL pour copie manuelle
+            this.showStatus(`Lien: ${url}`, 'info', 5000);
+        }
     }
 
     /**
@@ -541,6 +1264,10 @@ class DirectionalMapApp {
 
         window.removeEventListener('deviceorientation', this.onDeviceOrientation);
         window.removeEventListener('deviceorientationabsolute', this.onDeviceOrientation);
+
+        if (this.geodesicLine && this.map) {
+            this.map.removeLayer(this.geodesicLine);
+        }
 
         if (this.map) {
             this.map.remove();
